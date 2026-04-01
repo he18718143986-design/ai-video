@@ -39,13 +39,15 @@ export interface ResolvedSelector {
   strategy: SelectorStrategy;
   /** Index in the chain. */
   strategyIndex: number;
+  /** Updated strategy with refreshed tracking fields (lastWorked/failCount). */
+  updatedStrategy: SelectorStrategy;
 }
 
 /**
  * Resolve a SelectorChain by trying each strategy in priority order (desc).
  *
  * @param page     The Playwright page to search
- * @param chain    Ordered list of selector strategies
+ * @param chain    Ordered list of selector strategies (NOT mutated)
  * @param timeout  Max ms to wait for each strategy (default 2000)
  * @returns        The first matching locator, or null if none matched
  */
@@ -64,20 +66,20 @@ export async function resolveSelector(
       const locator = buildLocator(page, strategy);
       const count = await locator.count().catch(() => 0);
       if (count > 0) {
-        // Update success tracking on the original chain entry
-        chain[strategy._idx].lastWorked = new Date().toISOString();
-        chain[strategy._idx].failCount = 0;
         return {
           locator,
           strategy: chain[strategy._idx],
           strategyIndex: strategy._idx,
+          updatedStrategy: {
+            ...chain[strategy._idx],
+            lastWorked: new Date().toISOString(),
+            failCount: 0,
+          },
         };
       }
     } catch {
       // Strategy failed — continue to next
     }
-    // Track failure
-    chain[strategy._idx].failCount = (chain[strategy._idx].failCount ?? 0) + 1;
   }
 
   return null;

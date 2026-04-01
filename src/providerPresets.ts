@@ -209,9 +209,9 @@ export const PROVIDER_PRESETS: Record<string, SiteAutomationConfig> = {
         { selector: '[class*="video"] video', method: 'css', priority: 1 },
       ],
       progressIndicator: [
-        { selector: '[class*="loading"]', method: 'css', priority: 3 },
-        { selector: '[class*="progress"]', method: 'css', priority: 2 },
-        { selector: '[class*="spin"]', method: 'css', priority: 1 },
+        { selector: '[class*="loading"]', method: 'css', priority: 4 },
+        { selector: '[class*="progress"]', method: 'css', priority: 3 },
+        { selector: '[class*="spin"]', method: 'css', priority: 2 },
         { selector: '.semi-spin', method: 'css', priority: 1 },
       ],
       downloadButton: [
@@ -223,7 +223,6 @@ export const PROVIDER_PRESETS: Record<string, SiteAutomationConfig> = {
         { selector: 'input[type="file"]', method: 'css', priority: 3 },
         { selector: 'button:has-text("上传")', method: 'css', priority: 2 },
         { selector: '[class*="upload"]', method: 'css', priority: 1 },
-        { selector: '[class*="frame"]', method: 'css', priority: 1 },
       ],
     },
     timing: { maxWaitMs: 300_000, pollIntervalMs: 5_000, hydrationDelayMs: 3_000 },

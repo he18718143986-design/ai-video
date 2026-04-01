@@ -9,7 +9,7 @@ import { useWorkbench } from '../hooks/useWorkbench';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import type { QualityTier, EnvironmentStatus, TTSSettings, VideoProviderConfig } from '../types';
+import type { QualityTier, EnvironmentStatus, TTSSettings, VideoProviderConfig, SelectorStrategy } from '../types';
 
 type Tab = 'environment' | 'ai' | 'accounts' | 'video' | 'tts';
 
@@ -542,7 +542,7 @@ function VideoProviderTab() {
   }, []);
 
   /** Flatten a SelectorChain array to a CSS selector string for the form */
-  const chainToStr = (chain?: Array<{ selector: string; method: string; priority: number }>): string => {
+  const chainToStr = (chain?: SelectorStrategy[]): string => {
     if (!chain || chain.length === 0) return '';
     return chain
       .filter(s => s.method === 'css')
