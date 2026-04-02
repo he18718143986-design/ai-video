@@ -63,25 +63,44 @@ export const PROVIDER_PRESETS: Record<string, SiteAutomationConfig> = {
     capabilities: { text: true, image: true, fileUpload: true, webSearch: true },
     selectors: {
       promptInput: [
+        // Gemini 2025+ uses contenteditable with role="textbox" (no longer .ql-editor)
+        { selector: '[contenteditable="true"][role="textbox"]', method: 'css', priority: 5 },
+        { selector: '[contenteditable="true"][aria-label*="Ask Gemini"]', method: 'css', priority: 4 },
         { selector: '.ql-editor[contenteditable="true"]', method: 'css', priority: 3 },
+        { selector: 'div[contenteditable="true"][aria-label]', method: 'css', priority: 2 },
         { selector: 'div[contenteditable="true"]', method: 'css', priority: 1 },
       ],
       sendButton: [
-        { selector: 'button[aria-label="Send message"]', method: 'css', priority: 3 },
+        { selector: 'button[aria-label="Send message"]', method: 'css', priority: 4 },
+        { selector: 'button[aria-label*="Send"]', method: 'css', priority: 3 },
+        { selector: 'button[aria-label*="发送"]', method: 'css', priority: 2 },
+        { selector: 'button[type="submit"]', method: 'css', priority: 1 },
       ],
       responseBlock: [
+        // Gemini 2025+ uses various response container patterns
+        { selector: '[data-message-author-role="assistant"]', method: 'css', priority: 5 },
+        { selector: 'message-content [class*="markdown"]', method: 'css', priority: 4 },
         { selector: '.model-response-text', method: 'css', priority: 3 },
+        { selector: '[class*="response-container"] [class*="markdown"]', method: 'css', priority: 2 },
+        { selector: '[class*="markdown"]', method: 'css', priority: 1 },
       ],
       readyIndicator: [
+        { selector: '[contenteditable="true"][role="textbox"]', method: 'css', priority: 5 },
+        { selector: '[contenteditable="true"][aria-label*="Ask Gemini"]', method: 'css', priority: 4 },
         { selector: '.ql-editor[contenteditable="true"]', method: 'css', priority: 3 },
+        { selector: 'div[contenteditable="true"][aria-label]', method: 'css', priority: 2 },
+        { selector: 'div[contenteditable="true"]', method: 'css', priority: 1 },
       ],
       quotaExhaustedIndicator: [
         { selector: 'text=quota', method: 'text', priority: 3 },
+        { selector: 'text=limit reached', method: 'text', priority: 2 },
+        { selector: 'text=rate limit', method: 'text', priority: 1 },
       ],
       modelPickerTrigger: [
-        { selector: 'button[data-test-id="model-selector"]', method: 'css', priority: 3 },
+        { selector: 'button[data-test-id="model-selector"]', method: 'css', priority: 4 },
+        { selector: 'button[aria-label*="model" i]', method: 'css', priority: 3 },
         { selector: 'mat-select[aria-label*="model"]', method: 'css', priority: 2 },
-        { selector: 'button[aria-label*="model"]', method: 'css', priority: 1 },
+        { selector: 'button[aria-haspopup="listbox"]', method: 'css', priority: 1 },
       ],
       modelOptionSelector: [
         { selector: 'mat-option', method: 'css', priority: 3 },
@@ -89,12 +108,14 @@ export const PROVIDER_PRESETS: Record<string, SiteAutomationConfig> = {
         { selector: '[role="menuitem"]', method: 'css', priority: 1 },
       ],
       fileUploadTrigger: [
-        { selector: 'button[aria-label="Upload file"]', method: 'css', priority: 3 },
-        { selector: 'button[aria-label*="Add file"]', method: 'css', priority: 2 },
+        { selector: 'button[aria-label*="Upload" i]', method: 'css', priority: 5 },
+        { selector: 'button[aria-label*="上传"]', method: 'css', priority: 4 },
+        { selector: 'button[aria-label*="Add file" i]', method: 'css', priority: 3 },
+        { selector: 'button[aria-label*="Attach" i]', method: 'css', priority: 2 },
         { selector: 'button[data-test-id="upload-button"]', method: 'css', priority: 1 },
       ],
     },
-    timing: { maxWaitMs: 180_000, pollIntervalMs: 2_000, hydrationDelayMs: 2_000 },
+    timing: { maxWaitMs: 180_000, pollIntervalMs: 2_000, hydrationDelayMs: 3_000 },
     profileDir: '',
     dailyLimits: { text: 50, images: 10 },
   },

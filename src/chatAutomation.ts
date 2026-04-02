@@ -42,6 +42,41 @@ export async function openChat(
   const { readyTimeout } = { ...DEFAULTS, ...opts };
   const page = context.pages()[0] ?? (await context.newPage());
   await page.goto(selectors.chatUrl, { waitUntil: 'domcontentloaded' });
+
+  // Check for login redirects — if the page navigated away from the chat URL,
+  // the user likely needs to log in
+  const currentUrl = page.url();
+  const expectedHost = new URL(selectors.chatUrl).hostname;
+  const actualHost = new URL(currentUrl).hostname;
+  if (actualHost !== expectedHost && !actualHost.includes('accounts.google')) {
+    throw new Error(
+      `Login required: page redirected from ${selectors.chatUrl} to ${currentUrl}. ` +
+      'Please open a Login browser first and log into the site.',
+    );
+  }
+
+  // Detect common login/auth page indicators
+  const loginIndicators = [
+    'input[type="password"]',
+    'input[type="email"][autocomplete*="username"]',
+    '#identifierId',      // Google login
+    '[name="identifier"]', // Google login
+  ];
+  for (const sel of loginIndicators) {
+    try {
+      const count = await page.locator(sel).count();
+      if (count > 0) {
+        throw new Error(
+          `Login required: detected login form element (${sel}) on ${currentUrl}. ` +
+          'Please open a Login browser first and log into the site.',
+        );
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('Login required')) throw err;
+      // selector check failed — continue
+    }
+  }
+
   await page.waitForSelector(selectors.readyIndicator, { timeout: readyTimeout });
   return page;
 }
@@ -206,6 +241,9 @@ async function broadModelSearch(page: Page): Promise<ScrapedModel[]> {
  * `<input type="file">` and setting files directly if the trigger selector
  * does not produce a filechooser event.
  *
+ * After uploading, waits for upload indicators to settle (progress spinners
+ * disappear, file chips/badges appear) to ensure the upload is complete.
+ *
  * @param page    The active chat page
  * @param files   Array of absolute file paths on the server filesystem
  * @param selectors Provider selectors (must include `fileUploadTrigger`)
@@ -223,6 +261,8 @@ export async function uploadFiles(
     throw new Error(`Files not found: ${missing.join(', ')}`);
   }
 
+  let uploaded = false;
+
   // Strategy 1: click the trigger and intercept the filechooser dialog
   if (selectors.fileUploadTrigger) {
     const triggers = selectors.fileUploadTrigger.split(',').map((s) => s.trim());
@@ -237,9 +277,8 @@ export async function uploadFiles(
           loc.first().click({ timeout: 3_000 }),
         ]);
         await fileChooser.setFiles(files);
-        // Wait for upload indicators to settle
-        await page.waitForTimeout(2_000);
-        return;
+        uploaded = true;
+        break;
       } catch {
         // This selector didn't produce a filechooser — try next
       }
@@ -247,17 +286,117 @@ export async function uploadFiles(
   }
 
   // Strategy 2: look for a hidden <input type="file"> and set files directly
-  const fileInput = page.locator('input[type="file"]');
-  if ((await fileInput.count()) > 0) {
-    await fileInput.first().setInputFiles(files);
-    await page.waitForTimeout(2_000);
-    return;
+  if (!uploaded) {
+    const fileInput = page.locator('input[type="file"]');
+    if ((await fileInput.count()) > 0) {
+      await fileInput.first().setInputFiles(files);
+      uploaded = true;
+    }
   }
 
-  throw new Error(
-    'Could not find a file upload trigger. ' +
-    'Check the fileUploadTrigger selector in provider config.',
-  );
+  if (!uploaded) {
+    throw new Error(
+      'Could not find a file upload trigger. ' +
+      'Check the fileUploadTrigger selector in provider config.',
+    );
+  }
+
+  // Wait for upload to complete: poll for progress indicators to disappear
+  await waitForUploadCompletion(page);
+}
+
+/**
+ * Wait for file upload to complete by:
+ * 1. Detecting if a progress/loading indicator appears
+ * 2. Waiting for it to disappear (upload finished)
+ * 3. Ensuring file attachment chips/badges are visible
+ *
+ * Falls back to a generous static wait if no indicators are detected.
+ */
+async function waitForUploadCompletion(
+  page: Page,
+  maxWaitMs = 60_000,
+): Promise<void> {
+  const progressSelectors = [
+    '[class*="progress"]',
+    '[class*="loading"]',
+    '[class*="uploading"]',
+    '[class*="spinner"]',
+    '[class*="spin"]',
+    '[role="progressbar"]',
+  ];
+
+  // Check if any progress indicator appears within the first 3 seconds
+  let hasProgressIndicator = false;
+  const startTime = Date.now();
+
+  await page.waitForTimeout(1_000); // brief pause for indicator to render
+
+  for (const sel of progressSelectors) {
+    try {
+      const count = await page.locator(sel).count();
+      if (count > 0) {
+        hasProgressIndicator = true;
+        break;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (hasProgressIndicator) {
+    // Wait for progress indicators to disappear
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
+      let anyActive = false;
+      for (const sel of progressSelectors) {
+        try {
+          const count = await page.locator(sel).count();
+          if (count > 0) {
+            // Check if any are visible
+            const visible = await page.locator(sel).first().isVisible().catch(() => false);
+            if (visible) {
+              anyActive = true;
+              break;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if (!anyActive) break;
+      await page.waitForTimeout(2_000);
+    }
+
+    // Extra settling time after progress indicator disappears
+    await page.waitForTimeout(2_000);
+  } else {
+    // No progress indicator detected — use a generous static wait
+    // Video files are large, so wait longer to be safe
+    await page.waitForTimeout(5_000);
+  }
+}
+
+/**
+ * Find the best-matching response block selector from a comma-separated list.
+ * Tries each selector individually in order and returns the first one that
+ * has at least one match, falling back to the full combined selector.
+ */
+async function findBestResponseSelector(
+  page: Page,
+  responseBlockSelector: string,
+): Promise<string> {
+  const selectors = responseBlockSelector.split(',').map((s) => s.trim()).filter(Boolean);
+  for (const sel of selectors) {
+    try {
+      const count = await page.locator(sel).count();
+      if (count > 0) return sel;
+    } catch {
+      // invalid selector — skip
+    }
+  }
+  // Fallback: return the full combined selector
+  return responseBlockSelector;
 }
 
 /**
@@ -274,18 +413,47 @@ export async function sendPrompt(
 ): Promise<ChatResult> {
   const { responseTimeout, pollInterval } = { ...DEFAULTS, ...opts };
 
+  // --- find best response block selector ---
+  const responseSelector = await findBestResponseSelector(page, selectors.responseBlock);
+
   // --- count existing response blocks so we know when a *new* one appears ---
-  const beforeCount = await page.locator(selectors.responseBlock).count();
+  const beforeCount = await page.locator(responseSelector).count();
 
   // --- type the question ---
-  const input = page.locator(selectors.promptInput);
+  const input = page.locator(selectors.promptInput).first();
   await input.click();
-  await input.fill(question);
+
+  // Detect if the input is a contenteditable element (e.g. Gemini's rich editor)
+  const isContentEditable = await input.evaluate(
+    (el) => el.getAttribute('contenteditable') === 'true'
+  ).catch(() => false);
+
+  if (isContentEditable) {
+    // For contenteditable: clear existing content, then type character by character
+    await input.evaluate((el) => {
+      el.textContent = '';
+      el.innerHTML = '';
+    });
+    await input.pressSequentially(question, { delay: 10 });
+  } else {
+    // For standard inputs (textarea, input), use fill()
+    await input.fill(question);
+  }
 
   // --- send ---
+  let sent = false;
   if (selectors.sendButton) {
-    await page.locator(selectors.sendButton).click();
-  } else {
+    try {
+      const sendBtn = page.locator(selectors.sendButton);
+      if ((await sendBtn.count()) > 0) {
+        await sendBtn.first().click({ timeout: 5_000 });
+        sent = true;
+      }
+    } catch {
+      // Send button click failed — fall through to Enter key
+    }
+  }
+  if (!sent) {
     await input.press('Enter');
   }
 
@@ -294,7 +462,7 @@ export async function sendPrompt(
 
   // Wait for response count to increase
   while (Date.now() < deadline) {
-    const currentCount = await page.locator(selectors.responseBlock).count();
+    const currentCount = await page.locator(responseSelector).count();
     if (currentCount > beforeCount) break;
     await page.waitForTimeout(pollInterval);
   }
@@ -306,7 +474,7 @@ export async function sendPrompt(
 
   while (Date.now() < deadline) {
     const currentText = await page
-      .locator(selectors.responseBlock)
+      .locator(responseSelector)
       .last()
       .innerText()
       .catch(() => '');
@@ -335,7 +503,7 @@ export async function sendPrompt(
   }
 
   const answer = await page
-    .locator(selectors.responseBlock)
+    .locator(responseSelector)
     .last()
     .innerText()
     .catch(() => '');
