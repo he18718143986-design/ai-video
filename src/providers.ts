@@ -33,14 +33,15 @@ export const DEFAULT_PROVIDERS: Record<BuiltinProviderId, ProviderSelectors> = {
 
   gemini: {
     chatUrl: 'https://gemini.google.com/app',
-    promptInput: '.ql-editor[contenteditable="true"]',
-    sendButton: 'button[aria-label="Send message"]',
-    responseBlock: '.model-response-text',
-    readyIndicator: '.ql-editor[contenteditable="true"]',
+    // Gemini 2025+ uses contenteditable with role="textbox" (no longer .ql-editor)
+    promptInput: '[contenteditable="true"][role="textbox"], [contenteditable="true"][aria-label*="Ask Gemini"], .ql-editor[contenteditable="true"], div[contenteditable="true"]',
+    sendButton: 'button[aria-label="Send message"], button[aria-label*="Send"], button[aria-label*="发送"], button[type="submit"]',
+    responseBlock: '[data-message-author-role="assistant"], .model-response-text, [class*="markdown"]',
+    readyIndicator: '[contenteditable="true"][role="textbox"], [contenteditable="true"][aria-label*="Ask Gemini"], .ql-editor[contenteditable="true"], div[contenteditable="true"]',
     quotaExhaustedIndicator: 'text=quota',
-    modelPickerTrigger: 'button[data-test-id="model-selector"], mat-select[aria-label*="model"], button[aria-label*="model"]',
+    modelPickerTrigger: 'button[data-test-id="model-selector"], button[aria-label*="model" i], mat-select[aria-label*="model"], button[aria-haspopup="listbox"]',
     modelOptionSelector: 'mat-option, [role="option"], [role="menuitem"]',
-    fileUploadTrigger: 'button[aria-label="Upload file"], button[aria-label*="Add file"], button[data-test-id="upload-button"]',
+    fileUploadTrigger: 'button[aria-label*="Upload" i], button[aria-label*="上传"], button[aria-label*="Add file" i], button[aria-label*="Attach" i], button[data-test-id="upload-button"]',
   },
 
   deepseek: {
