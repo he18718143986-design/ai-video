@@ -232,7 +232,11 @@ export function workbenchRoutes(workbench: Workbench, uploadDir: string): Route[
       method: 'POST',
       pattern: /^\/api\/start$/,
       handler: (_req, res) => {
-        workbench.start().catch((err) => log.error('workbench_loop_error', err instanceof Error ? err : undefined, err instanceof Error ? undefined : { error: String(err) }));
+        workbench.start().catch((err) => {
+          const error = err instanceof Error ? err : undefined;
+          const extra = err instanceof Error ? undefined : { error: String(err) };
+          log.error('workbench_loop_error', error, extra);
+        });
         json(res, 200, { ok: true });
       },
     },

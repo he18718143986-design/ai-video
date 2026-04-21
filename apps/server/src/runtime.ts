@@ -154,14 +154,20 @@ function setSecurityHeaders(res: ServerResponse): void {
  * Constant-time API key comparison to prevent timing attacks.
  * Uses `crypto.timingSafeEqual` so the comparison time is independent
  * of how many characters match.
+ *
+ * `expectedBuf` is pre-allocated once in `buildApiKeyChecker` so
+ * `Buffer.from` is not called on every request.
  */
-function checkApiKey(req: IncomingMessage, apiKey: string): boolean {
-  if (!apiKey) return true;
-  const header = req.headers.authorization ?? '';
+function buildApiKeyChecker(apiKey: string): (req: IncomingMessage) => boolean {
+  if (!apiKey) return () => true;
   const expected = `Bearer ${apiKey}`;
-  // Length check first (timingSafeEqual requires equal-length buffers)
-  if (header.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(header), Buffer.from(expected));
+  const expectedBuf = Buffer.from(expected);
+  return (req: IncomingMessage): boolean => {
+    const header = req.headers.authorization ?? '';
+    // Length check first (timingSafeEqual requires equal-length buffers)
+    if (header.length !== expected.length) return false;
+    return timingSafeEqual(Buffer.from(header), expectedBuf);
+  };
 }
 
 /**
@@ -191,6 +197,9 @@ export function startServerRuntime(options: ServerRuntimeOptions): ServerRuntime
     pipelineService,
   } = options;
   const log = options.logger ?? createLogger('server');
+
+  /** Pre-built constant-time API key checker — avoids Buffer allocation per request. */
+  const checkApiKey = buildApiKeyChecker(apiKey);
 
   const maxSseClients = MAX_SSE_CLIENTS_CONST;
   let clientIdCounter = 0;
@@ -268,7 +277,7 @@ export function startServerRuntime(options: ServerRuntimeOptions): ServerRuntime
     }
 
     if (method === 'GET' && path === '/metrics') {
-      if (!checkApiKey(req, apiKey)) {
+      if (!checkApiKey(req)) {
         return json(res, 401, { error: 'Unauthorized — invalid or missing API key' });
       }
       res.writeHead(200, {
@@ -280,7 +289,7 @@ export function startServerRuntime(options: ServerRuntimeOptions): ServerRuntime
     }
 
     if (method === 'GET' && path === '/api/observability/snapshot') {
-      if (!checkApiKey(req, apiKey)) {
+      if (!checkApiKey(req)) {
         return json(res, 401, { error: 'Unauthorized — invalid or missing API key' });
       }
       return json(res, 200, snapshotMetrics(maxSseClients));
@@ -301,7 +310,7 @@ export function startServerRuntime(options: ServerRuntimeOptions): ServerRuntime
       });
     }
 
-    if (!checkApiKey(req, apiKey)) {
+    if (!checkApiKey(req)) {
       return json(res, 401, { error: 'Unauthorized — invalid or missing API key' });
     }
 
