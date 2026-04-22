@@ -150,7 +150,7 @@ export function parseStyleAnalysisCIR(
       subtitlePosition: normaliseSubtitlePosition(trackD.subtitle_position),
       subtitleHasShadow: Boolean(trackD.subtitle_has_shadow ?? true),
       subtitleHasBackdrop: Boolean(trackD.subtitle_has_backdrop ?? false),
-      subtitleFontSize: normaliseSubtitleFontSize(trackD.subtitle_font_size),
+      subtitleFontSize: normaliseSubtitleFontSize(typeof trackD.subtitle_font_size === 'number' ? String(trackD.subtitle_font_size) : trackD.subtitle_font_size),
       subtitlePrimaryColor: normaliseHex(trackD.subtitle_primary_color, '#FFFFFF'),
       subtitleOutlineColor: normaliseHex(trackD.subtitle_outline_color, '#000000'),
       subtitleFontCategory: normaliseFontCategory(trackD.subtitle_font_category),

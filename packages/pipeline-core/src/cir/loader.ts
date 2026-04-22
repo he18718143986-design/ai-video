@@ -57,7 +57,7 @@ export function loadVideoIR(ctx: CIRLoadContext, stage: PipelineStage): VideoIR 
 export function loadFormatSignature(ctx: CIRLoadContext, stage: PipelineStage): FormatSignature | undefined {
   const raw = ctx.loadArtifact<FormatSignature>(ARTIFACT.FORMAT_SIGNATURE);
   if (!raw) return undefined;
-  const probe = raw as Record<string, unknown>;
+  const probe = (raw as unknown) as Record<string, unknown>;
   if (probe._error) return undefined;
   if (probe._type !== 'FormatSignature') return undefined;
   return raw;
