@@ -18,7 +18,7 @@ export interface CIRLoadContext {
 
 function loadCIR<T>(ctx: CIRLoadContext, stage: PipelineStage, filename: string, tag: string, cirType: string): T {
   const raw = ctx.loadArtifact<T>(filename);
-  if (!raw || (raw as any)._cir !== tag) {
+  if (!raw || (raw as Record<string, unknown>)._cir !== tag) {
     throw new CIRValidationError(stage, cirType, [
       `${filename} is missing or not a valid ${cirType} — cannot proceed`,
     ]);
@@ -50,8 +50,9 @@ export function loadVideoIR(ctx: CIRLoadContext, stage: PipelineStage): VideoIR 
 export function loadFormatSignature(ctx: CIRLoadContext, stage: PipelineStage): FormatSignature | undefined {
   const raw = ctx.loadArtifact<FormatSignature>(ARTIFACT.FORMAT_SIGNATURE);
   if (!raw) return undefined;
-  if ((raw as any)._error) return undefined;
-  if ((raw as any)._type !== 'FormatSignature') return undefined;
+  const probe = raw as Record<string, unknown>;
+  if (probe._error) return undefined;
+  if (probe._type !== 'FormatSignature') return undefined;
   return raw;
 }
 
@@ -60,6 +61,6 @@ export function loadFormatSignature(ctx: CIRLoadContext, stage: PipelineStage): 
  */
 export function loadShotCIR(ctx: CIRLoadContext, _stage: PipelineStage): ShotCIR | undefined {
   const raw = ctx.loadArtifact<ShotCIR>(ARTIFACT.SHOT_CIR);
-  if (!raw || (raw as any)._cir !== 'ShotAnalysis') return undefined;
+  if (!raw || (raw as Record<string, unknown>)._cir !== 'ShotAnalysis') return undefined;
   return raw;
 }

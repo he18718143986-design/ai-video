@@ -67,7 +67,7 @@ export function parseStyleAnalysisCIR(
   const trackA = profile.track_a_script ?? {};
   const trackB = profile.track_b_visual ?? {};
   const trackC = profile.track_c_audio ?? {};
-  const trackD = (profile as any).track_d_packaging ?? {};
+  const trackD = profile.track_d_packaging ?? {};
 
   // Normalise visual_metaphor_mapping to unified format
   const vmm = trackB.visual_metaphor_mapping;
@@ -77,12 +77,12 @@ export function parseStyleAnalysisCIR(
   };
   if (vmm && typeof vmm === 'object') {
     if ('rule' in vmm) {
-      vmmNormalised.rule = (vmm as any).rule ?? vmmNormalised.rule;
-      const examples = (vmm as any).examples;
-      if (Array.isArray(examples)) {
-        vmmNormalised.examples = examples.map((e: any) => ({
+      const vmmStructured = vmm as { rule?: string; examples?: Array<{ concept: string; metaphor_visual: string }> };
+      vmmNormalised.rule = vmmStructured.rule ?? vmmNormalised.rule;
+      if (Array.isArray(vmmStructured.examples)) {
+        vmmNormalised.examples = vmmStructured.examples.map(e => ({
           concept: e.concept ?? '',
-          visual: e.metaphor_visual ?? e.visual ?? '',
+          visual: e.metaphor_visual ?? '',
         }));
       }
     } else {

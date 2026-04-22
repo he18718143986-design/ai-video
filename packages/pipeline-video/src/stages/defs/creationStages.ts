@@ -138,7 +138,7 @@ async function generateScript(ctx: StageRunContext, validationFeedback?: string,
   return runScriptGeneration(adapter, {
     topic: project.topic,
     styleCIR: cir,
-    researchData: project.researchData ?? {} as any,
+    researchData: project.researchData ?? (() => { throw new Error('SCRIPT_GENERATION: researchData is missing — RESEARCH stage must complete first'); })(),
     calibrationData: project.calibrationData,
     narrativeMap: project.narrativeMap ?? [],
     generationPlan: project.generationPlan,
@@ -166,7 +166,7 @@ registerStage({
     const styleCIR = loadStyleCIR(ctx, 'QA_REVIEW');
 
     const result = await runQaReview(adapter, {
-      scriptOutput: project.scriptOutput ?? {} as any,
+      scriptOutput: project.scriptOutput ?? (() => { throw new Error('QA_REVIEW: scriptOutput is missing — SCRIPT_GENERATION stage must complete first'); })(),
       topic: project.topic,
       styleCIR,
       formatSignature: loadFormatSignature(ctx, 'QA_REVIEW'),
@@ -186,7 +186,7 @@ registerStage({
 
     // Run contamination check — surface C12/C13 flags for human review
     const validation = validateScript(
-      project.scriptOutput ?? {} as any, project.calibrationData, styleCIR,
+      project.scriptOutput ?? (() => { throw new Error('QA_REVIEW: scriptOutput is missing'); })(), project.calibrationData, styleCIR,
       loadFormatSignature(ctx, 'QA_REVIEW'), project.researchData?.facts,
     );
     const contamination = validation.classifiedErrors.filter(e => e.class === 'contamination');
