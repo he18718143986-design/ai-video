@@ -86,7 +86,7 @@ describe('sanitizePromptForJimeng', () => {
 
   it('replaces "organ" and "organs"', () => {
     expect(sanitizePromptForJimeng('internal organ')).toBe('internal core structure');
-    // "organs" matches /\borgan[s]?\b/ and is replaced as a whole with "core structure"
+    // Only the matched word "organs" is replaced with "core structure" — surrounding words are preserved
     expect(sanitizePromptForJimeng('vital organs')).toBe('vital core structure');
   });
 
@@ -228,9 +228,10 @@ describe('sanitizePromptForKling', () => {
   });
 
   it('replaces destruction variants', () => {
-    // regex is /\bdestro\w+\b/ — matches words starting with "destro" (e.g. "destroy", "destroyed")
+    // regex is /\bdestro\w+\b/ — matches words containing the literal substring "destro"
+    // "destroy" → "d-e-s-t-r-o-y" → contains "destro" → matches
     expect(sanitizePromptForKling('destroy the city')).toBe('dissolving the city');
-    // "destruction" starts with "destr" not "destro", so it does not match
+    // "destruction" → "d-e-s-t-r-u-c-t-i-o-n" → 6th letter is 'u' not 'o', so "destro" is absent → does not match
     expect(sanitizePromptForKling('destruction path')).toBe('destruction path');
   });
 
